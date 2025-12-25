@@ -141,8 +141,20 @@ pub async fn start_p2p_node(sink: StreamSink<String>) {
                             let _ = sink.add(format!("PEER+:{peer_id}"));
                         }
                     },
-                    
+
                     // Peer disconnected
+                    SwarmEvent::ConnectionClosed { peer_id, num_established, .. } => {
+                        if num_established == 0 {
+                            println!("Connection closed with {peer_id}");
+                            // Update Flutter
+                            let _ = sink.add(format!("PEER-:{peer_id}"));
+                            
+                            // Clear Gossipsub/Kademlia
+                            swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
+                        }
+                    },
+                    
+                    // Peer expired
                     SwarmEvent::Behaviour(MyP2PBehaviourEvent::Mdns(MdnsEvent::Expired(list))) => {
                          for (peer_id, _multiaddr) in list {
                             swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
