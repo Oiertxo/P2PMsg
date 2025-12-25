@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:p2pmsg/src/rust/api/simple.dart';
+import 'package:p2pmsg/src/rust/api/node.dart';
 import 'package:p2pmsg/src/rust/frb_generated.dart';
 
 Future<void> main() async {
@@ -41,10 +41,10 @@ class _IdentityWidgetState extends State<IdentityWidget> {
   }
 
   void _loadIdentity() {
-    final id = generateMyIdentity();
+    final id = startP2PNode();
     
     setState(() {
-      _identity = id;
+      _identity = "Peer ID:\n$id";
     });
   }
 

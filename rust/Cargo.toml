@@ -8,8 +8,18 @@ crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 flutter_rust_bridge = "=2.11.1"
-libp2p = { version = "0.56.0", features = ["tokio", "gossipsub", "kad", "noise", "tcp", "yamux", "dns", "macros"] }
-tokio = { version = "1.48.0", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
+# USAMOS LA VERSIÓN 0.53.2 QUE ES MÁS ESTABLE
+libp2p = { version = "0.53.2", features = [
+    "tokio", 
+    "gossipsub", 
+    "kad", 
+    "noise", 
+    "tcp", 
+    "yamux", 
+    "dns", 
+    "macros", 
+    "ping", 
+    "identify" 
+] }

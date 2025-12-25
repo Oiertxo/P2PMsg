@@ -3,7 +3,7 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
-import 'api/simple.dart';
+import 'api/node.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
@@ -64,7 +64,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => -444685083;
+  int get rustContentHash => 19354462;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -75,7 +75,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
-  String crateApiSimpleGenerateMyIdentity();
+  String crateApiNodeStartP2PNode();
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -87,7 +87,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   });
 
   @override
-  String crateApiSimpleGenerateMyIdentity() {
+  String crateApiNodeStartP2PNode() {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
@@ -98,15 +98,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_String,
           decodeErrorData: null,
         ),
-        constMeta: kCrateApiSimpleGenerateMyIdentityConstMeta,
+        constMeta: kCrateApiNodeStartP2PNodeConstMeta,
         argValues: [],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiSimpleGenerateMyIdentityConstMeta =>
-      const TaskConstMeta(debugName: "generate_my_identity", argNames: []);
+  TaskConstMeta get kCrateApiNodeStartP2PNodeConstMeta =>
+      const TaskConstMeta(debugName: "start_p2p_node", argNames: []);
 
   @protected
   String dco_decode_String(dynamic raw) {
