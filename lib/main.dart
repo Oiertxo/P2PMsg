@@ -32,19 +32,37 @@ class IdentityWidget extends StatefulWidget {
 }
 
 class _IdentityWidgetState extends State<IdentityWidget> {
-  String _identity = "Generating keys...";
+  String _myPeerId = "Generating keys...";
+  final List<String> _peers = [];
 
   @override
   void initState() {
     super.initState();
-    _loadIdentity();
+    _startNodeAndListen();
   }
 
-  void _loadIdentity() {
-    final id = startP2PNode();
-    
-    setState(() {
-      _identity = "Peer ID:\n$id";
+  void _startNodeAndListen() async {
+    final stream = startP2PNode();
+
+    stream.listen((message) {
+      if (!mounted) return;
+      
+      setState(() {
+        if (message.startsWith("ME:")) {
+          // Self Peer ID
+          _myPeerId = message.substring(3);
+        } else if (message.startsWith("PEER+:")) {
+          // New Peer connected
+          final newPeer = message.substring(6);
+          if (!_peers.contains(newPeer)) {
+            _peers.add(newPeer);
+          }
+        } else if (message.startsWith("PEER-:")) {
+          // Peer disconnected
+          final lostPeer = message.substring(6);
+          _peers.remove(lostPeer);
+        }
+      });
     });
   }
 
@@ -53,19 +71,44 @@ class _IdentityWidgetState extends State<IdentityWidget> {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.security, size: 64, color: Colors.blue),
-          const SizedBox(height: 20),
-          const Text(
-            "Data:",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          // Identity card
+          Card(
+            color: Colors.blue.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  const Icon(Icons.person_pin, size: 50, color: Colors.blue),
+                  const SizedBox(height: 10),
+                  const Text("My Peer ID", style: TextStyle(fontWeight: FontWeight.bold)),
+                  SelectableText(_myPeerId, style: const TextStyle(fontFamily: 'monospace')),
+                ],
+              ),
+            ),
           ),
+          
+          const SizedBox(height: 20),
+          const Divider(),
+          const Text("Nearby devices (mDNS)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
-          SelectableText(
-            _identity,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 16, fontFamily: 'Courier'),
+
+          // Detected Peer list
+          Expanded(
+            child: _peers.isEmpty
+                ? const Center(child: Text("Looking for peers...", style: TextStyle(color: Colors.grey)))
+                : ListView.builder(
+                    itemCount: _peers.length,
+                    itemBuilder: (context, index) {
+                      return ListTile(
+                        leading: const Icon(Icons.wifi_tethering, color: Colors.green),
+                        title: Text("Peer detected"),
+                        subtitle: Text(_peers[index], style: const TextStyle(fontSize: 12)),
+                        trailing: const Icon(Icons.chat_bubble_outline),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
