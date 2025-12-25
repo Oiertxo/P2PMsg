@@ -84,7 +84,7 @@ The codebase follows a modular architecture separating the UI, Business Logic, a
 1. **Clone the repository:**
 
 ```bash
-git clone [https://github.com/Oiertxo/P2PMsg.git](https://github.com/Oiertxo/P2PMsg.git)
+git clone https://github.com/Oiertxo/P2PMsg.git
 cd P2PMsg
 
 ```
