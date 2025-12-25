@@ -3,6 +3,7 @@ use crate::frb_generated::StreamSink;
 use libp2p::futures::StreamExt;
 use libp2p::{
     identity,
+    gossipsub,
     kad::{
         store::MemoryStore,
         // UPDATE: 'Kademlia' is now 'Behaviour' and 'KademliaConfig' is 'Config'
@@ -16,26 +17,40 @@ use libp2p::{
     SwarmBuilder, PeerId,
 };
 use std::time::Duration;
+use std::sync::{Arc, Mutex};
+use tokio::sync::mpsc;
 
-// 1. NETWORK BEHAVIOUR
+// Sends messsages to Swarm
+static COMMAND_SENDER: std::sync::OnceLock<mpsc::UnboundedSender<(String, String)>> = std::sync::OnceLock::new();
+
+// NETWORK BEHAVIOUR
 #[derive(NetworkBehaviour)]
 struct MyP2PBehaviour {
-    // The struct is technically 'Behaviour', but we aliased it to 'Kademlia' above
     kademlia: Kademlia<MemoryStore>,
     ping: Ping,
     mdns: Mdns,
+    gossipsub: gossipsub::Behaviour,
 }
 
-// 2. MAIN FUNCTION
+#[frb(sync)]
+pub fn send_message(recipient: String, msg: String) {
+    if let Some(sender) = COMMAND_SENDER.get() {
+        let _ = sender.send((recipient, msg));
+    } else {
+        println!("Error: Node not ready.");
+    }
+}
+
+// MAIN FUNCTION
 pub async fn start_p2p_node(sink: StreamSink<String>) {
-    // A. Identity & Keys
+    // Identity & Keys
     let id_keys = identity::Keypair::generate_ed25519();
     let peer_id = PeerId::from(id_keys.public());
 
     // Send ID to Flutter
     let _ = sink.add(format!("ME:{}", peer_id));
 
-    // B. Setup Kademlia
+    // Setup Kademlia
     let store = MemoryStore::new(peer_id);
     let mut kad_config = KademliaConfig::default();
     kad_config.set_protocol_names(vec![
@@ -43,16 +58,32 @@ pub async fn start_p2p_node(sink: StreamSink<String>) {
     ]);
     let kademlia = Kademlia::with_config(peer_id, store, kad_config);
 
-    // C. Setup Ping
+    // Setup Ping
     let ping = Ping::new(PingConfig::new().with_interval(Duration::from_secs(30)));
 
-    // D. Setup mDNS (Local Discovery)
+    // Setup mDNS (Local Discovery)
     let mdns = Mdns::new(MdnsConfig::default(), peer_id).expect("Failed to create mDNS behaviour");
 
-    // E. Combine Behaviours
-    let behaviour = MyP2PBehaviour { kademlia, ping, mdns };
+    // Setup Gossipsub
+    let gossip_msg_config = gossipsub::ConfigBuilder::default()
+        .heartbeat_interval(Duration::from_secs(1))
+        .validation_mode(gossipsub::ValidationMode::Strict)
+        .build()
+        .expect("Valid config");
 
-    // F. Build the Swarm
+    let mut gossipsub = gossipsub::Behaviour::new(
+        gossipsub::MessageAuthenticity::Signed(id_keys.clone()),
+        gossip_msg_config,
+    ).expect("Correct behaviour");
+
+    // Subscribe to global channel
+    let topic = gossipsub::IdentTopic::new("p2p-chat-global");
+    gossipsub.subscribe(&topic).unwrap();
+
+    // Combine Behaviours
+    let behaviour = MyP2PBehaviour { kademlia, ping, mdns, gossipsub };
+
+    // Build the Swarm
     let mut swarm = SwarmBuilder::with_existing_identity(id_keys)
         .with_tokio() 
         .with_tcp(
@@ -65,41 +96,62 @@ pub async fn start_p2p_node(sink: StreamSink<String>) {
         .expect("Failed to build behaviour")
         .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
         .build();
-
-    // G. START THE EVENT LOOP IN BACKGROUND
+    
     // We listen on all interfaces (0.0.0.0) with a random OS-assigned port (0)
     swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap()).unwrap();
+
+    // Create command channel
+    let (tx, mut rx) = mpsc::unbounded_channel::<(String, String)>();
+    let _ = COMMAND_SENDER.set(tx);
     
-    // We spawn a Tokio task to keep the node alive.
-    // This runs in parallel and won't block the Flutter UI.
+    // Tokio task to keep the node alive.
     tokio::spawn(async move {
         loop {
-            // Wait for the next event from the network
-            match swarm.select_next_some().await {
-                
-                // EVENT: mDNS discovered a new peer!
-                SwarmEvent::Behaviour(MyP2PBehaviourEvent::Mdns(MdnsEvent::Discovered(list))) => {
-                    for (peer_id, _multiaddr) in list {
-                        println!("mDNS discovered a new peer: {peer_id}");
-                        let _ = sink.add(format!("PEER+:{peer_id}"));
+            tokio::select! {
+                // Command from Flutter
+                Some((recipient, msg_to_send)) = rx.recv() => {
+                    let topic = gossipsub::IdentTopic::new("p2p-chat-global");
+                    // Publish message
+                    if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic, msg_to_send.as_bytes()) {
+                        println!("Publish error: {e:?}");
+                    } else {
+                        // Send ACK to Flutter
+                        let _ = sink.add(format!("MSG_SENT:{}:{}", recipient, msg_to_send)); 
                     }
-                },
+                }
 
-                // EVENT: mDNS lost a peer (expired)
-                SwarmEvent::Behaviour(MyP2PBehaviourEvent::Mdns(MdnsEvent::Expired(list))) => {
-                    for (peer_id, _multiaddr) in list {
-                        println!("mDNS peer expired: {peer_id}");
-                        let _ = sink.add(format!("PEER-:{peer_id}"));
-                    }
-                },
+                // Network events
+                event = swarm.select_next_some() => match event {                    
+                    // Receive message from Peer
+                    SwarmEvent::Behaviour(MyP2PBehaviourEvent::Gossipsub(gossipsub::Event::Message {
+                        propagation_source: peer_id,
+                        message_id: _,
+                        message,
+                    })) => {
+                        let text = String::from_utf8_lossy(&message.data);
+                        println!("Message received from {peer_id}: {text}");
+                        let _ = sink.add(format!("MSG:{}:{}", peer_id, text));
+                    },
 
-                // EVENT: Node started listening
-                SwarmEvent::NewListenAddr { address, .. } => {
-                    println!("Listening on {address:?}");
-                },
-
-                // Ignore other events for now
-                _ => {}
+                    // Peer discovered
+                    SwarmEvent::Behaviour(MyP2PBehaviourEvent::Mdns(MdnsEvent::Discovered(list))) => {
+                        for (peer_id, _multiaddr) in list {
+                            swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
+                            swarm.behaviour_mut().kademlia.add_address(&peer_id, _multiaddr);
+                            let _ = sink.add(format!("PEER+:{peer_id}"));
+                        }
+                    },
+                    
+                    // Peer disconnected
+                    SwarmEvent::Behaviour(MyP2PBehaviourEvent::Mdns(MdnsEvent::Expired(list))) => {
+                         for (peer_id, _multiaddr) in list {
+                            swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
+                            swarm.behaviour_mut().kademlia.remove_address(&peer_id, &_multiaddr);
+                            let _ = sink.add(format!("PEER-:{peer_id}"));
+                        }
+                    },
+                    _ => {}
+                }
             }
         }
     });
