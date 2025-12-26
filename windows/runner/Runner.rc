@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "temp_p2p" "\0"
+            VALUE "CompanyName", "com.oiertxo" "\0"
+            VALUE "FileDescription", "p2p_msg" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "temp_p2p" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "temp_p2p.exe" "\0"
-            VALUE "ProductName", "temp_p2p" "\0"
+            VALUE "InternalName", "p2p_msg" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2025 com.oiertxo. All rights reserved." "\0"
+            VALUE "OriginalFilename", "p2p_msg.exe" "\0"
+            VALUE "ProductName", "p2p_msg" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

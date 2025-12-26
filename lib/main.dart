@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:p2pmsg/src/rust/frb_generated.dart';
-import 'package:p2pmsg/logic/node_manager.dart';
+import 'package:p2p_msg/src/rust/frb_generated.dart';
+import 'package:p2p_msg/logic/node_manager.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   await RustLib.init();
-  NodeManager().start();
+  final instanceId = args.isNotEmpty ? args[0] : 'default';
+  NodeManager().start(instanceId);
   runApp(const MyApp());
 }
 

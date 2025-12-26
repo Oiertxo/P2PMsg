@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:p2pmsg/src/rust/api/node.dart';
+import 'package:p2p_msg/src/rust/api/node.dart';
+import 'package:p2p_msg/logic/database_helper.dart';
+import 'package:path_provider/path_provider.dart';
 
 class NodeManager extends ChangeNotifier {
   // Singleton
@@ -8,28 +10,55 @@ class NodeManager extends ChangeNotifier {
   NodeManager._internal();
 
   // Data state
-  String myPeerId = "Iniciando...";
+  String myPeerId = "Initializing...";
   final List<String> peers = [];
   final Map<String, List<Map<String, String>>> chatHistory = {};
   final Set<String> unreadPeers = {};
 
   bool _isNodeStarted = false;
 
-  void start() {
+  void start(String instanceName) async {
     if (_isNodeStarted) return;
     _isNodeStarted = true;
+    print("Initializing instance (Runtime): $instanceName");
 
-    // Rust call
-    final stream = startP2PNode(); 
+    // Get DB path
+    final appDocDir = await getApplicationSupportDirectory();
+    final storagePath = appDocDir.path;    
+    print("App Storage Path: $storagePath");
 
+    // Init DB
+    await DatabaseHelper().init(storagePath, instanceName);
+    // Load history from DB
+    await _loadHistory();
+
+    // Start node
+    final stream = startP2PNode(storagePath: storagePath, instanceName: instanceName);
     stream.listen((message) {
       _processMessage(message);
     });
   }
 
-  void sendMessageTo(String recipient, String text) {
-    if (text.trim().isEmpty) return;
+  // Recovers messages from DB
+  Future<void> _loadHistory() async {
+    final history = await DatabaseHelper().getAllMessages();
     
+    for (var row in history) {
+      final peerId = row['peerId'] as String;
+      final sender = row['sender'] as String;
+      final text = row['text'] as String;
+      
+      if (!chatHistory.containsKey(peerId)) {
+        chatHistory[peerId] = [];
+      }
+      chatHistory[peerId]!.add({'sender': sender, 'text': text});
+    }
+    // Notify UI
+    notifyListeners();
+  }
+
+  void sendMessageTo(String recipient, String text) {
+    if (text.trim().isEmpty) return;    
     sendMessage(recipient: recipient, msg: text);
   }
 
@@ -69,9 +98,11 @@ class NodeManager extends ChangeNotifier {
       if (parts.length >= 3) {
         final sender = parts[1];
         final text = parts.sublist(2).join(":");
-
+        // Update state
         _addMessageToHistory(sender, {'sender': 'peer', 'text': text});
         unreadPeers.add(sender);
+        // Store message in DB
+        DatabaseHelper().insertMessage(sender, 'peer', text);
         needsUpdate = true;
       }
     }
@@ -81,8 +112,10 @@ class NodeManager extends ChangeNotifier {
       if (parts.length >= 3) {
         final recipientId = parts[1];
         final text = parts.sublist(2).join(":");
-        
+        // Update state
         _addMessageToHistory(recipientId, {'sender': 'me', 'text': text});
+        // Store message in DB
+        DatabaseHelper().insertMessage(recipientId, 'me', text);
         needsUpdate = true;
       }
     }

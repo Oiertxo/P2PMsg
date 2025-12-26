@@ -1,3 +1,6 @@
+use std::fs;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use flutter_rust_bridge::frb;
 use crate::frb_generated::StreamSink;
 use libp2p::futures::StreamExt;
@@ -42,9 +45,9 @@ pub fn send_message(recipient: String, msg: String) {
 }
 
 // MAIN FUNCTION
-pub async fn start_p2p_node(sink: StreamSink<String>) {
+pub async fn start_p2p_node(sink: StreamSink<String>, storage_path: String, instance_name: String) {
     // Identity & Keys
-    let id_keys = identity::Keypair::generate_ed25519();
+    let id_keys = get_or_create_identity(&storage_path, &instance_name);
     let peer_id = PeerId::from(id_keys.public());
 
     // Send ID to Flutter
@@ -54,7 +57,7 @@ pub async fn start_p2p_node(sink: StreamSink<String>) {
     let store = MemoryStore::new(peer_id);
     let mut kad_config = KademliaConfig::default();
     kad_config.set_protocol_names(vec![
-        libp2p::StreamProtocol::new("/p2pmsg/kad/1.0.0")
+        libp2p::StreamProtocol::new("/p2p_msg/kad/1.0.0")
     ]);
     let kademlia = Kademlia::with_config(peer_id, store, kad_config);
 
@@ -167,4 +170,45 @@ pub async fn start_p2p_node(sink: StreamSink<String>) {
             }
         }
     });
+}
+
+// Helper function to manage identity persistence
+fn get_or_create_identity(storage_path: &str, instance_name: &str) -> identity::Keypair {
+    let mut path = PathBuf::from(storage_path);
+    path.push(format!("identity_{}.bin", instance_name));
+
+    println!("Rust Identity Path: {:?}", path);
+
+    if path.exists() {
+        // Try to load existing identity
+        match fs::read(&path) {
+            Ok(bytes) => {
+                match identity::Keypair::from_protobuf_encoding(&bytes) {
+                    Ok(keypair) => {
+                        return keypair;
+                    },
+                    Err(e) => println!("Failed to decode identity: {:?}", e),
+                }
+            },
+            Err(e) => println!("Failed to read identity file: {:?}", e),
+        }
+    }
+
+    // Generate new identity if load failed or file doesn't exist
+    println!("Generating new identity for {}...", instance_name);
+    let keypair = identity::Keypair::generate_ed25519();
+
+    // Save to disk
+    match keypair.to_protobuf_encoding() {
+        Ok(bytes) => {
+            if let Err(e) = fs::write(&path, bytes) {
+                println!("Failed to save identity: {:?}", e);
+            } else {
+                println!("Identity saved to disk");
+            }
+        },
+        Err(e) => println!("Failed to encode identity: {:?}", e),
+    }
+
+    keypair
 }

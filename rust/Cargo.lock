@@ -2143,6 +2143,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "p2p_msg_core"
+version = "0.1.0"
+dependencies = [
+ "flutter_rust_bridge",
+ "libp2p",
+ "tokio",
+]
+
+[[package]]
 name = "parking"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2586,15 +2595,6 @@ dependencies = [
  "netlink-sys",
  "nix",
  "thiserror 1.0.69",
- "tokio",
-]
-
-[[package]]
-name = "rust_lib_temp_p2p"
-version = "0.1.0"
-dependencies = [
- "flutter_rust_bridge",
- "libp2p",
  "tokio",
 ]
 

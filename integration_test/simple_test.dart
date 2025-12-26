@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:temp_p2p/main.dart';
-import 'package:temp_p2p/src/rust/frb_generated.dart';
+import 'package:p2p_msg/main.dart';
+import 'package:p2p_msg/src/rust/frb_generated.dart';
 import 'package:integration_test/integration_test.dart';
 
 void main() {

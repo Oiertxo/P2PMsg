@@ -104,12 +104,19 @@ fn wire__crate__api__node__start_p2p_node_impl(
                 <StreamSink<String, flutter_rust_bridge::for_generated::SseCodec>>::sse_decode(
                     &mut deserializer,
                 );
+            let api_storage_path = <String>::sse_decode(&mut deserializer);
+            let api_instance_name = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| async move {
                 transform_result_sse::<_, ()>(
                     (move || async move {
                         let output_ok = Result::<_, ()>::Ok({
-                            crate::api::node::start_p2p_node(api_sink).await;
+                            crate::api::node::start_p2p_node(
+                                api_sink,
+                                api_storage_path,
+                                api_instance_name,
+                            )
+                            .await;
                         })?;
                         Ok(output_ok)
                     })()

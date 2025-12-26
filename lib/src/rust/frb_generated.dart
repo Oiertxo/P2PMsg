@@ -68,7 +68,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
-        stem: 'rust_lib_temp_p2p',
+        stem: 'p2p_msg_core',
         ioDirectory: 'rust/target/release/',
         webPrefix: 'pkg/',
       );
@@ -80,7 +80,10 @@ abstract class RustLibApi extends BaseApi {
     required String msg,
   });
 
-  Stream<String> crateApiNodeStartP2PNode();
+  Stream<String> crateApiNodeStartP2PNode({
+    required String storagePath,
+    required String instanceName,
+  });
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -121,7 +124,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
-  Stream<String> crateApiNodeStartP2PNode() {
+  Stream<String> crateApiNodeStartP2PNode({
+    required String storagePath,
+    required String instanceName,
+  }) {
     final sink = RustStreamSink<String>();
     unawaited(
       handler.executeNormal(
@@ -129,6 +135,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           callFfi: (port_) {
             final serializer = SseSerializer(generalizedFrbRustBinding);
             sse_encode_StreamSink_String_Sse(sink, serializer);
+            sse_encode_String(storagePath, serializer);
+            sse_encode_String(instanceName, serializer);
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
@@ -141,7 +149,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             decodeErrorData: null,
           ),
           constMeta: kCrateApiNodeStartP2PNodeConstMeta,
-          argValues: [sink],
+          argValues: [sink, storagePath, instanceName],
           apiImpl: this,
         ),
       ),
@@ -149,8 +157,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     return sink.stream;
   }
 
-  TaskConstMeta get kCrateApiNodeStartP2PNodeConstMeta =>
-      const TaskConstMeta(debugName: "start_p2p_node", argNames: ["sink"]);
+  TaskConstMeta get kCrateApiNodeStartP2PNodeConstMeta => const TaskConstMeta(
+    debugName: "start_p2p_node",
+    argNames: ["sink", "storagePath", "instanceName"],
+  );
 
   @protected
   AnyhowException dco_decode_AnyhowException(dynamic raw) {

@@ -1,5 +1,5 @@
 [package]
-name = "rust_lib_temp_p2p"
+name = "p2p_msg_core"
 version = "0.1.0"
 edition = "2021"
 

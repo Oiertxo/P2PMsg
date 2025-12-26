@@ -25,7 +25,7 @@ Currently, the prototype demonstrates a functional **Local Mesh Network** capabi
 
 ## ✅ Implementation Status
 
-This project is currently in the **Alpha Prototype** phase (Phase 1 Completed).
+This project is currently in the **Alpha Prototype** phase.
 
 * [x] **Core Setup:** Rust + Flutter environment integration via `flutter_rust_bridge` (v2).
 * [x] **Identity:** Secure `Ed25519` keypair generation (Randomized).
@@ -34,8 +34,8 @@ This project is currently in the **Alpha Prototype** phase (Phase 1 Completed).
 * [x] **Messaging:** Full **GossipSub** integration. Text messages are broadcasted and acknowledged (`ACK`) by the Rust backend.
 * [x] **Connection Lifecycle:** Instant detection of peer disconnection (TCP reset) with immediate UI feedback.
 * [x] **UI/UX:** WhatsApp-style chat interface with conditional rendering and state management.
-* [ ] **Persistence:** SQLite integration for chat history (Next Step).
-* [ ] **Global Discovery:** Kademlia DHT implementation.
+* [X] **Persistence:** SQLite integration for chat history.
+* [ ] **Global Discovery:** Kademlia DHT implementation (Next Step).
 
 ## 🛠️ The Tech Stack
 
@@ -57,17 +57,18 @@ Leveraging the "Golden Stack" for high-performance cross-platform engineering:
 The codebase follows a modular architecture separating the UI, Business Logic, and Systems Engineering:
 
 ```text
-├── lib/                     # Flutter Code (Dart)
+├── lib/                         # Flutter Code (Dart)
 │   ├── logic/
-│   │   └── node_manager.dart # Business Logic & State Management (Singleton)
-│   ├── main.dart            # UI Components (Screens & Widgets)
-│   └── src/                 # Auto-generated Rust bindings
-├── rust/                    # Rust Core Logic (Crate)
+│   │   ├── node_manager.dart    # Business Logic & State Management (Singleton)
+│   │   └── database_helper.dart # DataBase Management (Singleton)
+│   ├── main.dart                # UI Components (Screens & Widgets)
+│   └── src/                     # Auto-generated Rust bindings
+├── rust/                        # Rust Core Logic (Crate)
 │   ├── src/
 │   │   ├── api/
-│   │   │   └── node.rs      # P2P Node implementation (Swarm, Behaviour, Loop)
-│   │   └── lib.rs           # Crate root
-│   └── Cargo.toml           # Rust dependencies
+│   │   │   └── node.rs          # P2P Node implementation (Swarm, Behaviour, Loop)
+│   │   └── lib.rs               # Crate root
+│   └── Cargo.toml               # Rust dependencies
 
 ```
 

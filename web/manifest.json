@@ -1,6 +1,6 @@
 {
-    "name": "temp_p2p",
-    "short_name": "temp_p2p",
+    "name": "p2p_msg",
+    "short_name": "p2p_msg",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
