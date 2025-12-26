@@ -14,10 +14,11 @@ class NodeManager extends ChangeNotifier {
   final List<String> peers = [];
   final Map<String, List<Map<String, String>>> chatHistory = {};
   final Set<String> unreadPeers = {};
+  String? activeChatPeerId;
 
   bool _isNodeStarted = false;
 
-  void start(String instanceName) async {
+  Future<void> start(String instanceName) async {
     if (_isNodeStarted) return;
     _isNodeStarted = true;
     print("Initializing instance (Runtime): $instanceName");
@@ -100,7 +101,9 @@ class NodeManager extends ChangeNotifier {
         final text = parts.sublist(2).join(":");
         // Update state
         _addMessageToHistory(sender, {'sender': 'peer', 'text': text});
-        unreadPeers.add(sender);
+        if (sender != activeChatPeerId) {
+          unreadPeers.add(sender);
+        }
         // Store message in DB
         DatabaseHelper().insertMessage(sender, 'peer', text);
         needsUpdate = true;

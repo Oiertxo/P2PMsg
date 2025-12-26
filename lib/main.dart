@@ -3,9 +3,10 @@ import 'package:p2p_msg/src/rust/frb_generated.dart';
 import 'package:p2p_msg/logic/node_manager.dart';
 
 Future<void> main(List<String> args) async {
+  WidgetsFlutterBinding.ensureInitialized();
   await RustLib.init();
   final instanceId = args.isNotEmpty ? args[0] : 'default';
-  NodeManager().start(instanceId);
+  await NodeManager().start(instanceId);
   runApp(const MyApp());
 }
 
@@ -45,13 +46,16 @@ class _MainScreenState extends State<MainScreen> {
 
         // If the selected peer disconnected, close the chat
         if (_selectedPeer != null && !manager.peers.contains(_selectedPeer)) {
-           // Schedule state change for the next frame to avoid build errors
-           WidgetsBinding.instance.addPostFrameCallback((_) {
-             if (mounted) {
-               setState(() { _selectedPeer = null; });
-               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("User disconnected")));
-             }
-           });
+          // Schedule state change for the next frame to avoid build errors
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _selectedPeer = null;
+                manager.activeChatPeerId = null;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("User disconnected")));
+            }
+          });
         }
 
         // Conditional Navigation: Show Chat or List
@@ -59,11 +63,15 @@ class _MainScreenState extends State<MainScreen> {
           body: _selectedPeer != null 
               ? ChatView(
                   peerId: _selectedPeer!, 
-                  onBack: () => setState(() => _selectedPeer = null)
+                  onBack: () {
+                    setState(() => _selectedPeer = null);
+                    manager.activeChatPeerId = null;
+                  }
                 )
               : PeerListView(
                   onPeerSelected: (peerId) {
                     setState(() => _selectedPeer = peerId);
+                    manager.activeChatPeerId = peerId;
                     manager.markAsRead(peerId);
                   },
                 ),

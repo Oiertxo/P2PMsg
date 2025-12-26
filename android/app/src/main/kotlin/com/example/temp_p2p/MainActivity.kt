@@ -1,4 +1,4 @@
-package com.example.p2p_msg
+package com.oiertxo.p2p_msg
 
 import io.flutter.embedding.android.FlutterActivity
 

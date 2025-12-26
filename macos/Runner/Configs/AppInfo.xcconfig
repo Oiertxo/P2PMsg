@@ -8,7 +8,7 @@
 PRODUCT_NAME = p2p_msg
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.example.tempP2p
+PRODUCT_BUNDLE_IDENTIFIER = com.oiertxo.p2p_msg
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2025 com.example. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2025 com.oiertxo. All rights reserved.
