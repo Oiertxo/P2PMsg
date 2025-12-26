@@ -113,13 +113,25 @@ pub async fn start_p2p_node(sink: StreamSink<String>, storage_path: String, inst
             tokio::select! {
                 // Command from Flutter
                 Some((recipient, msg_to_send)) = rx.recv() => {
-                    let topic = gossipsub::IdentTopic::new("p2p-chat-global");
-                    // Publish message
-                    if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic, msg_to_send.as_bytes()) {
-                        println!("Publish error: {e:?}");
+                    if recipient == "REFRESH" {
+                        println!("Refreshing node discovery...");
+                        // Refresh network
+                        let _ = swarm.behaviour_mut().kademlia.bootstrap();
+                        // Refresh mDNS
+                        let random_peer = PeerId::random();
+                        swarm.behaviour_mut().kademlia.get_closest_peers(random_peer);
+                        for peer_id in swarm.connected_peers() {
+                            let _ = sink.add(format!("PEER+:{}", peer_id));
+                        }
                     } else {
-                        // Send ACK to Flutter
-                        let _ = sink.add(format!("MSG_SENT:{}:{}", recipient, msg_to_send)); 
+                        let topic = gossipsub::IdentTopic::new("p2p-chat-global");
+                        // Publish message
+                        if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic, msg_to_send.as_bytes()) {
+                            println!("Publish error: {e:?}");
+                        } else {
+                            // Send ACK to Flutter
+                            let _ = sink.add(format!("MSG_SENT:{}:{}", recipient, msg_to_send)); 
+                        }
                     }
                 }
 
@@ -136,13 +148,28 @@ pub async fn start_p2p_node(sink: StreamSink<String>, storage_path: String, inst
                         let _ = sink.add(format!("MSG:{}:{}", peer_id, text));
                     },
 
-                    // Peer discovered
+                    // Peer discovered (mDNS)
                     SwarmEvent::Behaviour(MyP2PBehaviourEvent::Mdns(MdnsEvent::Discovered(list))) => {
                         for (peer_id, _multiaddr) in list {
                             swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
                             swarm.behaviour_mut().kademlia.add_address(&peer_id, _multiaddr);
                             let _ = sink.add(format!("PEER+:{peer_id}"));
+                            println!("Connection opened with {peer_id} using mDNS");
                         }
+                    },
+
+                    // Peer discovered (Kademlia)
+                    SwarmEvent::Behaviour(MyP2PBehaviourEvent::Kademlia(libp2p::kad::Event::RoutingUpdated { peer_id, .. })) => {
+                        swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
+                        let _ = sink.add(format!("PEER+:{peer_id}"));
+                        println!("Connection opened with {peer_id} using Kademlia");
+                    },
+
+                    // Any connection
+                    SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                        swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
+                        let _ = sink.add(format!("PEER+:{peer_id}"));
+                        println!("Connection opened with {peer_id} using any method");
                     },
 
                     // Peer disconnected
@@ -211,4 +238,11 @@ fn get_or_create_identity(storage_path: &str, instance_name: &str) -> identity::
     }
 
     keypair
+}
+
+#[frb(sync)]
+pub fn refresh_node() {
+    if let Some(sender) = COMMAND_SENDER.get() {
+        let _ = sender.send(("REFRESH".to_string(), "REFRESH".to_string()));
+    }
 }

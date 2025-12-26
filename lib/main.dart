@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:p2p_msg/src/rust/frb_generated.dart';
 import 'package:p2p_msg/logic/node_manager.dart';
 
+final nodeManager = NodeManager();
+
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   await RustLib.init();
   final instanceId = args.isNotEmpty ? args[0] : 'default';
-  await NodeManager().start(instanceId);
+  await nodeManager.start(instanceId);
   runApp(const MyApp());
 }
 
@@ -33,25 +35,43 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   String? _selectedPeer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Detect when user comes back to app (Android)
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      nodeManager.refreshDiscovery(); 
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     // AnimatedBuilder listens to NodeManager changes and rebuilds this widget
     return AnimatedBuilder(
-      animation: NodeManager(),
+      animation: nodeManager,
       builder: (context, child) {
-        final manager = NodeManager();
-
         // If the selected peer disconnected, close the chat
-        if (_selectedPeer != null && !manager.peers.contains(_selectedPeer)) {
+        if (_selectedPeer != null && !nodeManager.peers.contains(_selectedPeer)) {
           // Schedule state change for the next frame to avoid build errors
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               setState(() {
                 _selectedPeer = null;
-                manager.activeChatPeerId = null;
+                nodeManager.activeChatPeerId = null;
               });
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("User disconnected")));
             }
@@ -65,14 +85,14 @@ class _MainScreenState extends State<MainScreen> {
                   peerId: _selectedPeer!, 
                   onBack: () {
                     setState(() => _selectedPeer = null);
-                    manager.activeChatPeerId = null;
+                    nodeManager.activeChatPeerId = null;
                   }
                 )
               : PeerListView(
                   onPeerSelected: (peerId) {
                     setState(() => _selectedPeer = peerId);
-                    manager.activeChatPeerId = peerId;
-                    manager.markAsRead(peerId);
+                    nodeManager.activeChatPeerId = peerId;
+                    nodeManager.markAsRead(peerId);
                   },
                 ),
         );
@@ -89,10 +109,16 @@ class PeerListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final manager = NodeManager(); // Access data directly
-
     return Scaffold(
-      appBar: AppBar(title: const Text("P2P Messenger")),
+      appBar: AppBar(
+        title: const Text("P2P Messenger"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => nodeManager.refreshDiscovery(),
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -108,7 +134,7 @@ class PeerListView extends StatelessWidget {
                     const Icon(Icons.person_pin, size: 40, color: Colors.blue),
                     const SizedBox(height: 5),
                     const Text("My Peer ID", style: TextStyle(fontWeight: FontWeight.bold)),
-                    SelectableText(manager.myPeerId, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+                    SelectableText(nodeManager.myPeerId, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
                   ],
                 ),
               ),
@@ -120,13 +146,13 @@ class PeerListView extends StatelessWidget {
             
             // List of Peers
             Expanded(
-              child: manager.peers.isEmpty
+              child: nodeManager.peers.isEmpty
                   ? const Center(child: Text("Scanning for peers...", style: TextStyle(color: Colors.grey)))
                   : ListView.builder(
-                      itemCount: manager.peers.length,
+                      itemCount: nodeManager.peers.length,
                       itemBuilder: (context, index) {
-                        final peerId = manager.peers[index];
-                        final hasUnread = manager.unreadPeers.contains(peerId);
+                        final peerId = nodeManager.peers[index];
+                        final hasUnread = nodeManager.unreadPeers.contains(peerId);
 
                         return Card(
                           child: ListTile(
@@ -181,11 +207,11 @@ class _ChatViewState extends State<ChatView> {
   void initState() {
     super.initState();
     // Mark as read again just in case a message arrived while opening
-    NodeManager().markAsRead(widget.peerId); 
+    nodeManager.markAsRead(widget.peerId); 
   }
 
   void _sendMessage() {
-    NodeManager().sendMessageTo(widget.peerId, _textController.text);
+    nodeManager.sendMessageTo(widget.peerId, _textController.text);
     _textController.clear();
   }
 
@@ -202,7 +228,7 @@ class _ChatViewState extends State<ChatView> {
   @override
   Widget build(BuildContext context) {
     // Access messages from the manager
-    final messages = NodeManager().chatHistory[widget.peerId] ?? [];
+    final messages = nodeManager.chatHistory[widget.peerId] ?? [];
     
     // Auto-scroll when new messages arrive
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());

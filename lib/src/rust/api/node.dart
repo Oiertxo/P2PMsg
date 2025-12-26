@@ -22,3 +22,5 @@ Stream<String> startP2PNode({
   storagePath: storagePath,
   instanceName: instanceName,
 );
+
+void refreshNode() => RustLib.instance.api.crateApiNodeRefreshNode();

@@ -134,4 +134,16 @@ class NodeManager extends ChangeNotifier {
     }
     chatHistory[peerId]!.add(msg);
   }
+
+  void refreshDiscovery() {
+    print("Re-entering node...");
+    peers.clear();
+    notifyListeners();
+    // FIX
+    Future.delayed(const Duration(milliseconds: 500)).then((_) {
+      print("Flutter refreshing...");
+      refreshNode();
+      notifyListeners();
+    });
+  }
 }
