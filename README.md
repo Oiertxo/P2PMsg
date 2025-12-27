@@ -12,20 +12,22 @@ The core mission of this project is to provide a communication tool where the us
 
 Originally a local-only prototype, the project has evolved into a Wide Area Network (WAN) capable system. By deploying a dedicated Relay Server (Circuit Relay v2) on Oracle Cloud (my case, could be any other publicly available server), nodes behind restrictive home routers or mobile 4G/5G connections can now discover each other and exchange messages globally.
 
+The following is a representation of the communication between nodes and the relay.
+
 ```mermaid
 graph TD
     subgraph "📱 Device A (e.g., Android)"
         UI_A[Flutter UI] <-->|"FRB Bridge"| Node_A[Rust libp2p Node]
-        State_A[("HashMap<PeerId, Instant>\n(The Reaper's list)")] -.- Node_A
+        State_A[("HashMap<PeerId, Instant> (The Reaper's list)")] -.- Node_A
     end
 
     subgraph "☁️ Wide Area Network (WAN)"
-        Relay["🛡️ Oracle Relay Server\n(Circuit Relay v2 + Bootstrap)"]
+        Relay["🛡️ Relay Server (Circuit Relay v2 + Bootstrap)"]
     end
 
     subgraph "💻 Device B (e.g., Windows)"
         Node_B[Rust libp2p Node] <-->|"FRB Bridge"| UI_B[Flutter UI]
-        State_B[("HashMap<PeerId, Instant>\n(The Reaper's list)")] -.- Node_B
+        State_B[("HashMap<PeerId, Instant> (The Reaper's list)")] -.- Node_B
     end
 
     %% 1. Physical Connections
@@ -33,15 +35,15 @@ graph TD
     Node_B ==>|"1. Physical TCP Connect & Reserve"| Relay
 
     %% 2. Handshake Logical Flow (GossipSub)
-    Node_A -..->|"2a. GossipSub: ANNOUNCE:PRESENCE\n(Delayed start)"| Relay
+    Node_A -..->|"2a. GossipSub: ANNOUNCE:PRESENCE (Delayed start)"| Relay
     Relay -..->|"2b. Forward Presence"| Node_B
 
-    Node_B -..->|"3a. GossipSub: ANNOUNCE:WELCOME\n(Reply)"| Relay
+    Node_B -..->|"3a. GossipSub: ANNOUNCE:WELCOME (Reply)"| Relay
     Relay -..->|"3b. Forward Welcome"| Node_A
 
     %% 4. Steady State & Chat
-    Node_A --"4. Every 15s: ANNOUNCE:REFRESH\n(Heartbeat)"--> Relay
-    Node_B --"4. Every 15s: ANNOUNCE:REFRESH\n(Heartbeat)"--> Relay
+    Node_A --"4. Every 15s: ANNOUNCE:REFRESH (Heartbeat)"--> Relay
+    Node_B --"4. Every 15s: ANNOUNCE:REFRESH (Heartbeat)"--> Relay
 
     Node_A =="5. Chat Message (GossipSub)"==> Relay =="5. Forward Message"==> Node_B
 
