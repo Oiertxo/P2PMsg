@@ -2233,12 +2233,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "p2p_msg_core"
+name = "p2p_core"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "libp2p",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "p2p_node"
 version = "0.1.0"
 dependencies = [
  "flutter_rust_bridge",
  "futures",
  "libp2p",
+ "p2p_core",
  "serde",
  "serde_json",
  "tokio",
@@ -2650,6 +2662,18 @@ name = "regex-syntax"
 version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
+
+[[package]]
+name = "relay_server"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "libp2p",
+ "p2p_core",
+ "serde",
+ "serde_json",
+ "tokio",
+]
 
 [[package]]
 name = "resolv-conf"

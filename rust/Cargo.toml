@@ -1,31 +1,8 @@
-[package]
-name = "p2p_msg_core"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+resolver = "2"
 
-[lib]
-crate-type = ["cdylib", "staticlib"]
-
-[dependencies]
-flutter_rust_bridge = "=2.11.1"
-tokio = { version = "1", features = ["full"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-futures = "0.3"
-
-# USAMOS LA VERSIÓN 0.53.2 QUE ES MÁS ESTABLE
-libp2p = { version = "0.53.2", features = [
-    "tokio", 
-    "gossipsub", 
-    "kad", 
-    "noise", 
-    "tcp", 
-    "yamux", 
-    "dns", 
-    "macros", 
-    "ping", 
-    "identify",
-    "mdns",
-    "relay",
-    "dcutr",
-] }
+members = [
+    "core",
+    "node",
+    "relay"
+]

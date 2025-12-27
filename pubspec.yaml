@@ -10,7 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  p2p_msg_core:
+  p2p_node:
     path: rust_builder
   flutter_rust_bridge: 2.11.1
   sqflite: ^2.3.0

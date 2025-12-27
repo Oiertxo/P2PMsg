@@ -1,0 +1,33 @@
+[package]
+name = "p2p_node"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+p2p_core = { path = "../core" }
+flutter_rust_bridge = "=2.11.1"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+futures = "0.3"
+libp2p = { version = "0.53.2", features = [
+    "tokio",
+    "gossipsub",
+    "kad",
+    "noise",
+    "tcp",
+    "yamux",
+    "dns",
+    "macros",
+    "ping",
+    "identify",
+    "mdns",
+    "relay",
+    "dcutr",
+] }
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(frb_expand)'] }

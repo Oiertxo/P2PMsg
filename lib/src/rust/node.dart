@@ -3,23 +3,21 @@
 
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
-import '../config.dart';
-import '../frb_generated.dart';
+import 'config.dart';
+import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-void sendMessage({required String recipient, required String msg}) => RustLib
-    .instance
-    .api
-    .crateApiNodeSendMessage(recipient: recipient, msg: msg);
+void sendMessage({required String recipient, required String msg}) =>
+    RustLib.instance.api.crateNodeSendMessage(recipient: recipient, msg: msg);
 
 Stream<String> startP2PNode({
   required String storagePath,
   required String instanceName,
   required AppConfig config,
-}) => RustLib.instance.api.crateApiNodeStartP2PNode(
+}) => RustLib.instance.api.crateNodeStartP2PNode(
   storagePath: storagePath,
   instanceName: instanceName,
   config: config,
 );
 
-void refreshNode() => RustLib.instance.api.crateApiNodeRefreshNode();
+void refreshNode() => RustLib.instance.api.crateNodeRefreshNode();

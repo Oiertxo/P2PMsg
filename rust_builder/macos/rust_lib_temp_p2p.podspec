@@ -1,9 +1,9 @@
 #
 # To learn more about a Podspec see http://guides.cocoapods.org/syntax/podspec.html.
-# Run `pod lib lint p2p_msg_core.podspec` to validate before publishing.
+# Run `pod lib lint p2p_node.podspec` to validate before publishing.
 #
 Pod::Spec.new do |s|
-  s.name             = 'p2p_msg_core'
+  s.name             = 'p2p_node'
   s.version          = '0.0.1'
   s.summary          = 'A new Flutter FFI plugin project.'
   s.description      = <<-DESC
@@ -28,17 +28,17 @@ A new Flutter FFI plugin project.
   s.script_phase = {
     :name => 'Build Rust library',
     # First argument is relative path to the `rust` folder, second is name of rust library
-    :script => 'sh "$PODS_TARGET_SRCROOT/../cargokit/build_pod.sh" ../../rust p2p_msg_core',
+    :script => 'sh "$PODS_TARGET_SRCROOT/../cargokit/build_pod.sh" ../../rust p2p_node',
     :execution_position => :before_compile,
     :input_files => ['${BUILT_PRODUCTS_DIR}/cargokit_phony'],
     # Let XCode know that the static library referenced in -force_load below is
     # created by this build step.
-    :output_files => ["${BUILT_PRODUCTS_DIR}/libp2p_msg_core.a"],
+    :output_files => ["${BUILT_PRODUCTS_DIR}/libp2p_node.a"],
   }
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
     # Flutter.framework does not contain a i386 slice.
     'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
-    'OTHER_LDFLAGS' => '-force_load ${BUILT_PRODUCTS_DIR}/libp2p_msg_core.a',
+    'OTHER_LDFLAGS' => '-force_load ${BUILT_PRODUCTS_DIR}/libp2p_node.a',
   }
 end

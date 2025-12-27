@@ -6,7 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
-  p2p_msg_core
+  p2p_node
 )
 
 set(PLUGIN_BUNDLED_LIBRARIES)

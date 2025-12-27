@@ -42,3 +42,25 @@ android {
 flutter {
     source = "../.."
 }
+
+val cargokitPath = "../../rust_builder/cargokit/gradle/plugin.gradle"
+
+if (file(cargokitPath).exists()) {
+    apply(from = cargokitPath)
+
+    val cargokit = extensions.getByName("cargokit")
+
+    try {
+        val setManifestDir = cargokit.javaClass.getMethod("setManifestDir", String::class.java)
+        setManifestDir.invoke(cargokit, "../../rust/node")
+
+        val setLibname = cargokit.javaClass.getMethod("setLibname", String::class.java)
+        setLibname.invoke(cargokit, "p2p_node")
+
+        println("Cargokit configured correctly")
+    } catch (e: Exception) {
+        println("Fatal error configuring Rust: $e")
+    }
+} else {
+    println("Warning: cargokit not found in $cargokitPath")
+}

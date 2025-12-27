@@ -3,13 +3,13 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
-import 'api/node.dart';
 import 'config.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
 import 'frb_generated.io.dart'
     if (dart.library.js_interop) 'frb_generated.web.dart';
+import 'node.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 /// Main entrypoint of the Rust API
@@ -65,25 +65,22 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => -1405275311;
+  int get rustContentHash => -2146739541;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
-        stem: 'p2p_msg_core',
-        ioDirectory: 'rust/target/release/',
+        stem: 'p2p_node',
+        ioDirectory: 'rust/node/target/release/',
         webPrefix: 'pkg/',
       );
 }
 
 abstract class RustLibApi extends BaseApi {
-  void crateApiNodeRefreshNode();
+  void crateNodeRefreshNode();
 
-  void crateApiNodeSendMessage({
-    required String recipient,
-    required String msg,
-  });
+  void crateNodeSendMessage({required String recipient, required String msg});
 
-  Stream<String> crateApiNodeStartP2PNode({
+  Stream<String> crateNodeStartP2PNode({
     required String storagePath,
     required String instanceName,
     required AppConfig config,
@@ -99,7 +96,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   });
 
   @override
-  void crateApiNodeRefreshNode() {
+  void crateNodeRefreshNode() {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
@@ -110,21 +107,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_unit,
           decodeErrorData: null,
         ),
-        constMeta: kCrateApiNodeRefreshNodeConstMeta,
+        constMeta: kCrateNodeRefreshNodeConstMeta,
         argValues: [],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiNodeRefreshNodeConstMeta =>
+  TaskConstMeta get kCrateNodeRefreshNodeConstMeta =>
       const TaskConstMeta(debugName: "refresh_node", argNames: []);
 
   @override
-  void crateApiNodeSendMessage({
-    required String recipient,
-    required String msg,
-  }) {
+  void crateNodeSendMessage({required String recipient, required String msg}) {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
@@ -137,20 +131,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_unit,
           decodeErrorData: null,
         ),
-        constMeta: kCrateApiNodeSendMessageConstMeta,
+        constMeta: kCrateNodeSendMessageConstMeta,
         argValues: [recipient, msg],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiNodeSendMessageConstMeta => const TaskConstMeta(
+  TaskConstMeta get kCrateNodeSendMessageConstMeta => const TaskConstMeta(
     debugName: "send_message",
     argNames: ["recipient", "msg"],
   );
 
   @override
-  Stream<String> crateApiNodeStartP2PNode({
+  Stream<String> crateNodeStartP2PNode({
     required String storagePath,
     required String instanceName,
     required AppConfig config,
@@ -176,7 +170,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             decodeSuccessData: sse_decode_unit,
             decodeErrorData: null,
           ),
-          constMeta: kCrateApiNodeStartP2PNodeConstMeta,
+          constMeta: kCrateNodeStartP2PNodeConstMeta,
           argValues: [sink, storagePath, instanceName, config],
           apiImpl: this,
         ),
@@ -185,7 +179,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     return sink.stream;
   }
 
-  TaskConstMeta get kCrateApiNodeStartP2PNodeConstMeta => const TaskConstMeta(
+  TaskConstMeta get kCrateNodeStartP2PNodeConstMeta => const TaskConstMeta(
     debugName: "start_p2p_node",
     argNames: ["sink", "storagePath", "instanceName", "config"],
   );
