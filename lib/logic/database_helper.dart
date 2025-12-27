@@ -15,7 +15,7 @@ class DatabaseHelper {
   Future<void> init(String storagePath, String instanceName) async {
     if (_database != null) return;
 
-    // Initialize FFI    
+    // Initialize FFI
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
@@ -65,5 +65,30 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getAllMessages() async {
     final db = _getDb();
     return await db.query('messages', orderBy: 'timestamp ASC');
+  }
+
+  // Retrieve history from Peer sorted by time
+  Future<List<Map<String, dynamic>>> getMessagesForPeer(String peerId) async {
+    final db = _getDb();
+    return await db.query(
+      'messages',
+      where: 'peerId = ?',
+      whereArgs: [peerId],
+      orderBy: 'timestamp ASC',
+    );
+  }
+
+  // Retrieve all know Peers
+  Future<List<String>> getKnownPeers() async {
+    final db = _getDb();
+    final result = await db.rawQuery('SELECT DISTINCT peerId FROM messages');
+
+    return result.map((row) => row['peerId'] as String).toList();
+  }
+
+  // Delete history
+  Future<void> deleteAllMessages() async {
+    final db = _getDb();
+    await db.delete('messages');
   }
 }

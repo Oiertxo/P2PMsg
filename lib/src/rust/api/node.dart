@@ -3,12 +3,9 @@
 
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
+import '../config.dart';
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
-
-// These functions are ignored because they are not marked as `pub`: `get_or_create_identity`
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `MyP2PBehaviourEvent`, `MyP2PBehaviour`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `fmt`, `handle_established_inbound_connection`, `handle_established_outbound_connection`, `handle_pending_inbound_connection`, `handle_pending_outbound_connection`, `on_connection_handler_event`, `on_swarm_event`, `poll`
 
 void sendMessage({required String recipient, required String msg}) => RustLib
     .instance
@@ -18,9 +15,11 @@ void sendMessage({required String recipient, required String msg}) => RustLib
 Stream<String> startP2PNode({
   required String storagePath,
   required String instanceName,
+  required AppConfig config,
 }) => RustLib.instance.api.crateApiNodeStartP2PNode(
   storagePath: storagePath,
   instanceName: instanceName,
+  config: config,
 );
 
 void refreshNode() => RustLib.instance.api.crateApiNodeRefreshNode();
