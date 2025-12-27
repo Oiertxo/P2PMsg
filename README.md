@@ -12,6 +12,7 @@ The core mission of this project is to provide a communication tool where the us
 
 Originally a local-only prototype, the project has evolved into a Wide Area Network (WAN) capable system. By deploying a dedicated Relay Server (Circuit Relay v2) on Oracle Cloud (my case, could be any other publicly available server), nodes behind restrictive home routers or mobile 4G/5G connections can now discover each other and exchange messages globally.
 
+```mermaid
 graph TD
     subgraph "📱 Device A (e.g., Android)"
         UI_A[Flutter UI] <-->|"FRB Bridge"| Node_A[Rust libp2p Node]
@@ -55,6 +56,8 @@ graph TD
 
     linkStyle 0,1 stroke-width:3px,fill:none,stroke:green;
     linkStyle 8,9 stroke-width:3px,fill:none,stroke:blue;
+
+```
 
 ---
 
