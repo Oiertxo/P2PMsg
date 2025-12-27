@@ -1,0 +1,8 @@
+{
+  "is_bootstrap_node": false,
+  "relay_address": "/ip4/IP_ADDDRESS/tcp/PORT/p2p/RELAY_PEER_ID/p2p-circuit",
+  "bootstrap_nodes": [
+    "/ip4/IP_ADDDRESS/tcp/PORT/p2p/BOOTSTRAP_NODE_PEER_ID"
+  ],
+  "listen_port": 0
+}
