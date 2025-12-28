@@ -44,6 +44,11 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Android
+android/**/build/
+android/.gradle/
+*.iml
+
 # Rust
 rust/target/
 target/
