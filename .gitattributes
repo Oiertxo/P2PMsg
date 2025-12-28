@@ -1,1 +1,2 @@
-web/** linguist-documentation=true
+web/* linguist-vendored
+web/**/* linguist-vendored
