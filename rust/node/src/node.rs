@@ -2,6 +2,7 @@ use std::time::{Duration, Instant};
 use std::collections::HashMap;
 use crate::frb_generated::StreamSink;
 use futures::StreamExt;
+use flutter_rust_bridge::frb;
 use libp2p::{
     gossipsub,
     kad::{
