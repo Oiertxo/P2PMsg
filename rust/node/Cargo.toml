@@ -28,6 +28,9 @@ libp2p = { version = "0.53.2", features = [
     "relay",
     "dcutr",
 ] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-appender = "0.2"
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(frb_expand)'] }

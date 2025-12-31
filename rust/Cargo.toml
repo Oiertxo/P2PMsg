@@ -1,8 +1,7 @@
 [workspace]
-resolver = "2"
-
 members = [
     "core",
     "node",
     "relay"
 ]
+resolver = "2"

@@ -1,6 +1,6 @@
 use libp2p::{
-    gossipsub, identify, kad::{store::MemoryStore, Behaviour as Kademlia}, 
-    mdns::tokio::Behaviour as Mdns, ping::Behaviour as Ping, 
+    gossipsub, identify, kad::{store::MemoryStore, Behaviour as Kademlia},
+    mdns::tokio::Behaviour as Mdns, ping::Behaviour as Ping,
     relay, dcutr, swarm::NetworkBehaviour
 };
 
@@ -12,6 +12,6 @@ pub struct MyP2PBehaviour {
     pub gossipsub: gossipsub::Behaviour,
     pub relay_client: relay::client::Behaviour,
     pub relay_server: relay::Behaviour,
-    pub dcutr: dcutr::Behaviour,
+    pub dcutr_handler: dcutr::Behaviour,
     pub identify: identify::Behaviour,
 }

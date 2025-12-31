@@ -26,6 +26,8 @@ use p2p_core::identity::get_or_create_identity;
 use p2p_core::behaviour::{MyP2PBehaviour, MyP2PBehaviourEvent};
 use p2p_core::transport::build_transport;
 pub use crate::config::AppConfig;
+use p2p_core::logger::init_p2p_logging;
+use tracing::{info, warn, error, debug};
 
 // Sends info to Flutter
 static COMMAND_SENDER: std::sync::OnceLock<mpsc::UnboundedSender<(String, String)>> = std::sync::OnceLock::new();
@@ -47,6 +49,10 @@ pub async fn start_p2p_node(
     let id_keys = get_or_create_identity(&storage_path, &instance_name);
     let peer_id = PeerId::from(id_keys.public());
     let _ = sink.add(format!("ME:{}", peer_id));
+
+    // Logging
+    let _log_guard = init_p2p_logging(&storage_path, &peer_id);
+    info!("Instance '{}' initialized correctly", instance_name);
 
     // Transport
     let (transport, relay_client) = build_transport(&id_keys, peer_id);
@@ -72,7 +78,7 @@ pub async fn start_p2p_node(
         )),
         relay_client,
         relay_server: relay::Behaviour::new(peer_id, relay::Config::default()),
-        dcutr: dcutr::Behaviour::new(peer_id),
+        dcutr_handler: dcutr::Behaviour::new(peer_id),
     };
 
     // Swarm
@@ -88,14 +94,16 @@ pub async fn start_p2p_node(
 
     // Config listening
     let listen_addr = "/ip4/0.0.0.0/tcp/0".parse::<libp2p::Multiaddr>().unwrap();
-    swarm.listen_on(listen_addr).expect("Failed to listen on random port");
+    swarm.listen_on(listen_addr).expect("Failed to listen on TCP");
+    let quic_listen_addr = "/ip4/0.0.0.0/udp/0/quic-v1".parse::<libp2p::Multiaddr>().unwrap();
+    swarm.listen_on(quic_listen_addr).expect("Failed to listen on QUIC");
     let mut relay_peer_id: Option<PeerId> = None;
     let mut relay_address_to_dial: Option<libp2p::Multiaddr> = None;
 
     // Connect to relay
     if !config.relay_address.is_empty() {
         if let Ok(relay_addr) = config.relay_address.parse::<libp2p::Multiaddr>() {
-            println!("Trying to listen via Relay: {:?}", relay_addr);
+            info!("Trying to listen via Relay: {:?}", relay_addr);
             relay_address_to_dial = Some(relay_addr.clone());
 
             relay_peer_id = relay_addr.iter().find_map(|p| match p {
@@ -105,14 +113,14 @@ pub async fn start_p2p_node(
 
             let mut physical_addr = relay_addr.clone();
             if let Some(Protocol::P2pCircuit) = physical_addr.pop() {
-                println!("Dialing physical Relay address: {:?}", physical_addr);
+                info!("Dialing physical Relay address: {:?}", physical_addr);
                 if let Err(e) = swarm.dial(physical_addr) {
-                    println!("Error dialing Relay: {:?}", e);
+                    warn!("Error dialing Relay: {:?}", e);
                 }
             } else {
-                println!("Address did not end in p2p-circuit, dialing original...");
+                info!("Address did not end in p2p-circuit, dialing original...");
                 if let Err(e) = swarm.dial(relay_addr.clone()) {
-                    println!("Error dialing Relay: {:?}", e);
+                    warn!("Error dialing Relay: {:?}", e);
                 }
             }
         }
@@ -124,13 +132,13 @@ pub async fn start_p2p_node(
             if let Some(Protocol::P2p(remote_peer_id)) = addr.pop() {
                 swarm.behaviour_mut().kademlia.add_address(&remote_peer_id, addr.clone());
                 if Some(remote_peer_id) != relay_peer_id {
-                    println!("Dialing bootstrap node: {:?}", addr);
+                    info!("Dialing bootstrap node: {:?}", addr);
                     let full_addr = addr.with(Protocol::P2p(remote_peer_id));
                     if let Err(e) = swarm.dial(full_addr) {
-                         println!("Error dialing bootstrap: {:?}", e);
+                        error!("Error dialing bootstrap: {:?}", e);
                     }
                 } else {
-                    println!("Bootstrap node is the Relay. Skipping double dial.");
+                    info!("Bootstrap node is the Relay. Skipping double dial.");
                 }
             }
         }
@@ -148,7 +156,7 @@ pub async fn start_p2p_node(
             // Command from Flutter
             Some((recipient, msg_to_send)) = rx.recv() => {
                 if recipient == "REFRESH" {
-                    println!("Refreshing node discovery...");
+                    info!("Refreshing node discovery...");
                     peers_last_seen.clear();
 
                     // Refresh network
@@ -162,7 +170,7 @@ pub async fn start_p2p_node(
                     let topic = gossipsub::IdentTopic::new("p2p-chat-global");
                     let msg = "ANNOUNCE:REFRESH";
                     if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic, msg.as_bytes()) {
-                         println!("Error publishing refresh: {:?}", e);
+                        error!("Error publishing refresh: {:?}", e);
                     }
 
                     // Send known peers to Flutter
@@ -177,7 +185,7 @@ pub async fn start_p2p_node(
                     let topic = gossipsub::IdentTopic::new("p2p-chat-global");
                     // Publish message
                     if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic, msg_to_send.as_bytes()) {
-                        println!("Publish error: {e:?}");
+                        error!("Publish error: {e:?}");
                     } else {
                         // Send ACK to Flutter
                         if recipient != "BROADCAST" {
@@ -209,7 +217,7 @@ pub async fn start_p2p_node(
                         .collect();
 
                     for peer_id in dead_peers {
-                        println!("Peer timed out (Zombie): {}", peer_id);
+                        warn!("Peer timed out (Zombie): {}", peer_id);
                         if peers_last_seen.remove(&peer_id).is_some() {
                             let _ = sink.add(format!("PEER-:{}", peer_id));
                         }
@@ -223,7 +231,7 @@ pub async fn start_p2p_node(
                 SwarmEvent::Behaviour(MyP2PBehaviourEvent::RelayClient(event)) => {
                     match event {
                         relay::client::Event::ReservationReqAccepted { .. } => {
-                            println!("RELAY: Reservation ACCEPTED! I am now reachable via the server.");
+                            info!("RELAY: Reservation ACCEPTED! I am now reachable via the server.");
 
                             // Delay for Gossipsub initialization
                             let tx_for_task = tx_inner.clone();
@@ -231,12 +239,12 @@ pub async fn start_p2p_node(
                                 tokio::time::sleep(Duration::from_millis(500)).await;
                                 // Send message to ourselves (the event will send it properly)
                                 if let Err(e) = tx_for_task.send(("BROADCAST".to_string(), "ANNOUNCE:PRESENCE".to_string())) {
-                                    println!("Error sending delayed presence: {:?}", e);
+                                    error!("Error sending delayed presence: {:?}", e);
                                 }
                             });
                         },
                         other => {
-                            println!("RELAY Event (Posible Error): {:?}", other);
+                            warn!("RELAY Event (Posible Error): {:?}", other);
                         },
                     }
                 },
@@ -248,27 +256,65 @@ pub async fn start_p2p_node(
                     message,
                 })) => {
                     let text = String::from_utf8_lossy(&message.data);
-                    println!("Message received from {peer_id}: {text}");
 
-                    if peers_last_seen.insert(peer_id, Instant::now()).is_none() {
-                        println!("New peer discovered via Gossipsub: {}", peer_id);
-                        let _ = sink.add(format!("PEER+:{}", peer_id));
+                    let Some(original_sender) = message.source else {
+                        warn!("Received message without source ID (Anonymous): {}", text);
+                        return;
+                    };
+
+                    // Extract relay ID
+                    let Some(relay_id) = relay_peer_id else {
+                        return;
+                    };
+
+                    // Early return if the message comes from the Relay itself
+                    if original_sender == relay_id {
+                        return;
                     }
 
-                    // Handshake protocol logic
-                    if text.starts_with("ANNOUNCE:PRESENCE") || text.starts_with("ANNOUNCE:REFRESH") {
-                        println!("Presence signal from {}. Sending WELCOME back.", peer_id);
+                    // Log regular messages
+                    info!("Message received from Peer {} : {}", original_sender, text);
 
+                    // Peer discovery and DCUTR upgrade
+                    if peers_last_seen.insert(original_sender, Instant::now()).is_none() {
+                        info!("New peer discovered via Gossipsub: {}", original_sender);
+                        let _ = sink.add(format!("PEER+:{}", original_sender));
+
+                        // Attempt to upgrade to a direct connection via Relay Circuit
+                        if let Some(relay_addr) = &relay_address_to_dial {
+                            info!("Dialing via Circuit to trigger DCUTR for peer: {}", original_sender);
+
+                            // Build hierarchical address: [Physical] -> [Relay ID] -> [Circuit] -> [Peer ID]
+                            let base_physical = relay_addr.iter()
+                                .filter(|p| matches!(p, Protocol::Ip4(_) | Protocol::Tcp(_) | Protocol::Udp(_)))
+                                .collect::<libp2p::Multiaddr>();
+
+                            let circuit_addr = base_physical
+                                .with(Protocol::P2p(relay_id))
+                                .with(Protocol::P2pCircuit)
+                                .with(Protocol::P2p(original_sender));
+
+                            debug!("[DEBUG] Full Circuit Address: {}", circuit_addr);
+
+                            if let Err(e) = swarm.dial(circuit_addr) {
+                                warn!("Failed to dial peer via relay circuit: {:?}", e);
+                            }
+                        }
+                    }
+
+                    // Handshake and chat
+                    if text.starts_with("ANNOUNCE:PRESENCE") || text.starts_with("ANNOUNCE:REFRESH") {
+                        info!("Presence signal from {}. Sending WELCOME back.", original_sender);
                         let topic = gossipsub::IdentTopic::new("p2p-chat-global");
                         let msg = "ANNOUNCE:WELCOME";
                         if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic, msg.as_bytes()) {
-                            println!("Error sending welcome: {:?}", e);
+                            warn!("Error sending welcome: {:?}", e);
                         }
                     } else if text.starts_with("ANNOUNCE:WELCOME") {
-                         println!("Peer {} welcomed us. Connection established.", peer_id);
+                        info!("Peer {} welcomed us. Connection established.", original_sender);
                     } else {
                         // Regular chat message
-                        let _ = sink.add(format!("MSG:{}:{}", peer_id, text));
+                        let _ = sink.add(format!("MSG:{}:{}", original_sender, text));
                     }
                 },
 
@@ -278,7 +324,7 @@ pub async fn start_p2p_node(
                         if peers_last_seen.insert(peer_id, Instant::now()).is_none() {
                             swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
                             swarm.behaviour_mut().kademlia.add_address(&peer_id, multiaddr);
-                            println!("New peer discovered via mDNS: {}", peer_id);
+                            info!("New peer discovered via mDNS: {}", peer_id);
                             let _ = sink.add(format!("PEER+:{}", peer_id));
                         }
                     }
@@ -289,28 +335,50 @@ pub async fn start_p2p_node(
                     swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer);
                     if Some(peer) != relay_peer_id {
                         if peers_last_seen.insert(peer, Instant::now()).is_none() {
-                            println!("New peer discovered via Kademlia: {}", peer);
+                            info!("New peer discovered via Kademlia: {}", peer);
                             let _ = sink.add(format!("PEER+:{}", peer));
                         }
                     } else {
-                        println!("Connection opened with Relay Server using Kademlia (Hidden from UI)");
+                        info!("Connection opened with Relay Server using Kademlia (Hidden from UI)");
                     }
                 },
 
                 // Any connection
-                SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
                     swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
-                    if Some(peer_id) != relay_peer_id {
-                        if peers_last_seen.insert(peer_id, Instant::now()).is_none() {
-                            println!("New peer discovered: {}", peer_id);
-                            let _ = sink.add(format!("PEER+:{}", peer_id));
+                    let remote_addr = endpoint.get_remote_address();
+                    if Some(peer_id) == relay_peer_id {
+                        info!("[NETWORK] Connected to Relay Server, requesting reservation...");
+                        // Request reservation
+                        if let Some(base_addr) = &relay_address_to_dial {
+                            // We verify if the address already has p2p-circuit. If not, we append it.
+                            let mut listen_addr = base_addr.clone();
+                            if !listen_addr.iter().any(|p| matches!(p, Protocol::P2pCircuit)) {
+                                listen_addr.push(Protocol::P2pCircuit);
+                            }
+
+                            info!("[RELAY] Sending reservation request via: {}", listen_addr);
+
+                            if let Err(e) = swarm.listen_on(listen_addr) {
+                                error!("[NETWORK] Failed to request Relay Reservation: {:?}", e);
+                            }
                         }
                     } else {
-                        println!("Connection established with Relay Server! Requesting Reservation...");
-                        if let Some(addr) = &relay_address_to_dial {
-                            if let Err(e) = swarm.listen_on(addr.clone()) {
-                                println!("Error requesting reservation: {:?}", e);
-                            }
+                        let connection_type = if remote_addr.to_string().contains("p2p-circuit") {
+                            "RELAYED"
+                        } else {
+                            "DIRECT"
+                        };
+
+                        info!("[NETWORK] Connection [{}] established with PEER: {}", connection_type, peer_id);
+                        info!("[NETWORK] Address: {}", remote_addr);
+
+                        if remote_addr.to_string().contains("p2p-circuit") {
+                            info!("[DCUTR] Relayed connection detected. DCUTR should start now...");
+                        }
+
+                        if peers_last_seen.insert(peer_id, Instant::now()).is_none() {
+                            let _ = sink.add(format!("PEER+:{}", peer_id));
                         }
                     }
                 },
@@ -318,10 +386,10 @@ pub async fn start_p2p_node(
                 // Peer disconnected
                 SwarmEvent::ConnectionClosed { peer_id, num_established, .. } => {
                     if num_established == 0 {
-                        println!("Connection closed with {peer_id}");
+                        info!("Connection closed with {peer_id}");
                         // Update Flutter
                         if peers_last_seen.remove(&peer_id).is_some() {
-                            println!("Peer disconnected: {}", peer_id);
+                            info!("Peer disconnected: {}", peer_id);
                             let _ = sink.add(format!("PEER-:{peer_id}"));
                         }
 
@@ -335,7 +403,7 @@ pub async fn start_p2p_node(
                     for (peer_id, multiaddr) in list {
                         swarm.behaviour_mut().kademlia.remove_address(&peer_id, &multiaddr);
                         if peers_last_seen.remove(&peer_id).is_some() {
-                            println!("mDNS expired for {}: address {} removed form routing table", peer_id, multiaddr);
+                            info!("mDNS expired for {}: address {} removed form routing table", peer_id, multiaddr);
                             let _ = sink.add(format!("PEER-:{}", peer_id));
                         }
                     }
@@ -343,9 +411,33 @@ pub async fn start_p2p_node(
 
                 // Info of Peer
                 SwarmEvent::Behaviour(MyP2PBehaviourEvent::Identify(identify::Event::Received { peer_id, info, .. })) => {
-                    println!("Identify: info of Peer {peer_id}");
+                    info!("Identify: info of Peer {peer_id}");
                     for addr in info.listen_addrs {
                         swarm.behaviour_mut().kademlia.add_address(&peer_id, addr);
+                    }
+                },
+
+                // DCUTR
+                SwarmEvent::Behaviour(MyP2PBehaviourEvent::DcutrHandler(dcutr_event)) => {
+                    let peer = dcutr_event.remote_peer_id;
+                    match dcutr_event.result {
+                        Ok(connection_id) => {
+                            info!("[DCUTR] Direct connection with Peer {peer} (connection_id: {:?})", connection_id);
+                        },
+                        Err(e) => {
+                            warn!("[DCUTR] Could not upgrade connection with {}: {:?}", peer, e);
+                        }
+                    }
+                },
+
+                // Other events for debugging
+                SwarmEvent::Behaviour(other_event) => {
+                    debug!("DEBUG: Behavior Event: {:?}", other_event);
+                },
+
+                SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
+                    if let Some(pid) = peer_id {
+                        error!("[NETWORK] Dial error to {}: {:?}", pid, error);
                     }
                 },
 
